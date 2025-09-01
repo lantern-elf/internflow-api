@@ -312,6 +312,21 @@ app.get("/task/submission/:task_id/:user_id", (req, res) => {
     });
 });
 
+app.put("/disable_account",(req, res) => {
+    const { user_id, change } = req.body
+
+    const sql = 'UPDATE users SET role = ? WHERE id = ?'
+
+    database.query(sql, [change, user_id], (err, result) => {
+        if (err) return response(500, null, "Database error", res);
+        if (result?.affectedRows) {
+            return response(200, result[0], "Account Role Changed", res);
+        } else {
+            return response(404, null, "No submission found", res);
+        }
+    })
+} )
+
 //Running the server
 app.listen(port, () => {
     console.log(`Server is running in http://${`${host}:${port}`} `)
