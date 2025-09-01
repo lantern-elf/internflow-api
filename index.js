@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql')
+const mysql = require('mysql');
 const app = express()
 const bodyParser = require("body-parser")
 const cors = require('cors')
@@ -7,26 +7,114 @@ const response = require('./response')
 const bcrypt = require('bcrypt');
 const host = "localhost"
 const port = 3001
+let database;
 
-const database = mysql.createConnection({
-    host: host,
-    user: "root",
-    password: "",
-    database: "internflow"
-})
+async function prepare_db() {
+    const mysql_temp = require("mysql2/promise");
+    const database_temp = await mysql_temp.createConnection({
+        host: host,
+        user: "root",
+        password: ""
+    });
+
+    // create database if not exists
+    const check_database = await database_temp.query("SHOW DATABASES LIKE 'internflow'");
+    if (check_database[0] === undefined) return;
+
+    await database_temp.query("CREATE DATABASE IF NOT EXISTS internflow");
+    await database_temp.query("USE internflow");
+
+    // create table
+    await database_temp.query(`CREATE TABLE tasks (
+  id int(11) NOT NULL,
+  title varchar(255) DEFAULT NULL,
+  description text DEFAULT NULL,
+  due_date datetime DEFAULT NULL,
+  created_at datetime DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;`)
+    await database_temp.query(`CREATE TABLE task_users (
+  id int(11) NOT NULL,
+  task_id int(11) DEFAULT NULL,
+  user_id int(11) DEFAULT NULL,
+  submission text NOT NULL,
+  status enum('in_progress','completed') DEFAULT 'in_progress',
+  finished_at datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;`);
+    await database_temp.query(`CREATE TABLE users (
+  id int(11) NOT NULL,
+  name varchar(20) NOT NULL,
+  password_hash varchar(255) NOT NULL,
+  role enum('admin','intern','disabled') NOT NULL DEFAULT 'intern',
+  created_at date NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;`);
+
+    // insert table
+    await database_temp.query(`INSERT INTO users (id, name, password_hash, role, created_at) VALUES
+(1, 'Admin1', '$2b$13$aPk.Hm2cn7oNDDNRxC.xGunu6/yhrfzRtmO6jTiDPNN9wPtrca/lS', 'admin', '2025-06-11'),
+(2, 'user2', '$2b$13$nEh0ca6lC6t3VQU4eKt.j.lT4kEZLNG0AsLwiiB9ZrSCK1qJIRmJy', 'intern', '2025-06-13'),
+(3, 'user3', '$2b$13$XX4kfonEAc6nkaArHkvBaupA1aBlUIqztXtMShDS/xVawWhgAUAxC', 'intern', '2025-06-13'),
+(4, 'user4', '$2b$13$6zndug6HGn6487gsOMMsruCe4S5AQdA1FnciC.jikQFgtu0ufyK1O', 'intern', '2025-06-13'),
+(5, 'user5', '$2b$13$GKwYyQyxZxUcj92r8HctQO8tW.rQhTzOCsUv9KgVf8CgVpoxY9Fra', 'intern', '2025-06-13'),
+(6, 'user6', '$2b$13$DyV4wBIVugXb1ecKfrH62.EedY3VbpAuTveW6f2CrBfT/4hps7pGG', 'intern', '2025-06-13'),
+(7, 'user7', '$2b$13$HUBLB7Y7/c/AkXEbP5TH2e4rjwkvOkFLMwZuuop65K9Z8GdLKRG2G', 'intern', '2025-06-13'),
+(8, 'user8', '$2b$13$PApMFGIMIRwSSbBSL8Zdq.CDXH7eVpe39lGbaSuYfiCDTwvT.yU9S', 'intern', '2025-06-13'),
+(9, 'user9', '$2b$13$0IYYGehL5wK7OtNx4xpL2u4qVow8j1v07Ts.ha4EGylVJQLR/NkGi', 'intern', '2025-06-13');
+`);
+    await database_temp.query(`INSERT INTO task_users (id, task_id, user_id, submission, status, finished_at) VALUES
+(84, 56, 2, '', 'in_progress', NULL),
+(85, 56, 3, '', 'in_progress', NULL),
+(86, 56, 4, '', 'in_progress', NULL),
+(87, 56, 5, 'https://drive.google.com', 'completed', '2025-07-04 14:21:14'),
+(88, 56, 6, '', 'in_progress', NULL),
+(89, 56, 7, '', 'in_progress', NULL),
+(90, 56, 8, '', 'in_progress', NULL),
+(91, 56, 9, '', 'in_progress', NULL),
+(93, 57, 1, '', 'in_progress', NULL),
+(94, 57, 2, '', 'in_progress', NULL),
+(95, 57, 3, '', 'in_progress', NULL),
+(96, 57, 4, '', 'in_progress', NULL),
+(97, 57, 5, 'https://drive.com', 'completed', '2025-08-28 09:55:53'),
+(98, 57, 6, '', 'in_progress', NULL),
+(99, 57, 7, '', 'in_progress', NULL),
+(100, 57, 8, '', 'in_progress', NULL),
+(101, 57, 9, '', 'in_progress', NULL),
+(103, 58, 2, '', 'in_progress', NULL),
+(104, 58, 3, '', 'in_progress', NULL),
+(105, 58, 4, '', 'in_progress', NULL),
+(106, 58, 5, 'https://google.drive.com', 'completed', '2025-08-28 10:18:25'),
+(107, 59, 7, '', 'in_progress', NULL),
+(108, 59, 8, '', 'in_progress', NULL),
+(109, 59, 9, '', 'in_progress', NULL);
+`)
+    await database_temp.query(`INSERT INTO tasks (id, title, description, due_date, created_at) VALUES
+(56, 'Desain Halaman Login', 'Buat halaman login responsif menggunakan HTML, CSS, dan Bootstrap.', '2025-07-12 00:00:00', '2025-06-17 09:02:04'),
+(57, 'Membuat API CRUD untuk Manajemen Pengguna', 'Implementasikan fungsi Create, Read, Update, dan Delete menggunakan Express.js untuk tabel users', '2025-07-12 00:00:00', '2025-06-17 09:19:30'),
+(58, 'Integrasi Frontend dengan API', 'Ambil dan tampilkan daftar intern dari backend menggunakan React.', '2025-07-12 00:00:00', '2025-06-17 09:23:28'),
+(59, 'Dokumentasi Setup Proyek', 'Buat README yang menjelaskan cara menjalankan proyek secara lokal untuk intern baru.', '2025-06-28 00:00:00', '2025-06-17 09:28:08');`)
+
+    // alter table
+    await database_temp.query("ALTER TABLE tasks ADD PRIMARY KEY (id);");
+    await database_temp.query("ALTER TABLE task_users ADD PRIMARY KEY (id), ADD KEY task_id (task_id), ADD KEY user_id (user_id);");
+    await database_temp.query("ALTER TABLE users ADD PRIMARY KEY (id);");
+    await database_temp.query("ALTER TABLE tasks MODIFY id int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;");
+    await database_temp.query("ALTER TABLE task_users MODIFY id int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=130;");
+    await database_temp.query("ALTER TABLE users MODIFY id int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;");
+    
+    await database_temp.query(`ALTER TABLE task_users
+  ADD CONSTRAINT task_users_ibfk_1 FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE,
+  ADD CONSTRAINT task_users_ibfk_2 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE;
+`)
+
+    // close connection
+    await database_temp.end();
+}
+
 const tableName = "users"
 
 app.use(cors())
 app.use(bodyParser.json())
 
-//connect to database
-database.connect((err) =>{
-    if(err) throw err
-    console.log("Database connected")
-})
-
 //Main gates of API
-
 app.get("/", (req, res) => {
     res.send("Wellcome to API")
 }) 
@@ -115,7 +203,6 @@ app.post("/login", (req, res) => {
         }
 
         const user = result[0];
-
         try {
             // Compare hashed password
             const match = await bcrypt.compare(password, user.password_hash);
@@ -128,7 +215,8 @@ app.post("/login", (req, res) => {
 
             return response(200, user, "Login successful", res);
         } catch (error) {
-            console.error(error);
+            console.log(error)
+            //console.error(error);
             return response(500, null, "Server error", res);
         }
     });
@@ -325,9 +413,28 @@ app.put("/disable_account",(req, res) => {
             return response(404, null, "No submission found", res);
         }
     })
-} )
+});
 
-//Running the server
-app.listen(port, () => {
-    console.log(`Server is running in http://${`${host}:${port}`} `)
-})
+(async () => {
+    await prepare_db();
+
+    database = mysql.createConnection({
+        host: host,
+        user: "root",
+        password: "",
+        database: "internflow"
+    });
+
+    //connect to database
+    database.connect((err) =>{
+        if(err) throw err
+        console.log("Database connected")
+    });
+
+    //Running the server
+    app.listen(port, () => {
+        console.log(`Server is running in http://${`${host}:${port}`} `)
+    })
+})();
+
+
